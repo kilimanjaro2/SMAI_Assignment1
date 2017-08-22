@@ -22,6 +22,7 @@ test_pruned = test[:,1:]
 
 weight = np.zeros(784)
 
+"""
 for i in xrange(train_x_max):
     tot = np.dot(train_pruned[i],weight.T)
     if (tot >= 0 and train_flag[i] == 0):
@@ -37,10 +38,9 @@ for i in xrange(test_x_max):
         print (1)
     else:
         print(0)
-
+"""
+"""
 weight = np.zeros(784)
-temp1 = np.zeros(784)
-temp2 = np.zeros(784)
 dump = np.zeros(784)
 batch_size = 100
 
@@ -63,3 +63,59 @@ for i in xrange(test_x_max):
         print (1)
     else:
         print(0)
+"""
+"""
+margin = 100
+for i in xrange(train_x_max):
+    tot = np.dot(train_pruned[i],weight.T)
+    if (tot >= margin and train_flag[i] == 0):
+        weight -= train_pruned[i]
+    elif (tot <= margin and train_flag[i] == 1):
+        weight += train_pruned[i]
+
+#cnt = 0
+for i in xrange(test_x_max):
+    tot = np.dot(test_pruned[i],weight.T)
+    if(tot >= 0 and test_flag[i] == 1):
+        #cnt += 1
+        print (1)
+    elif(tot < 0 and test_flag[i] == 0):
+        print (1)
+        #cnt += 1
+    else:
+        #cnt += 0
+        print(0)
+
+"""
+"""
+weight = np.zeros(784)
+dump = np.zeros(784)
+batch_size = 100
+margin = 1
+
+while(batch_size > 0):
+    dump = np.zeros(784)
+    for i in xrange(train_x_max):
+        tot = np.dot(train_pruned[i],weight.T)
+        print tot
+        if (tot >= margin and train_flag[i] == 0):
+            dump -= train_pruned[i]
+        elif (tot <= -margin and train_flag[i] == 1):
+            dump += train_pruned[i]
+    weight += dump
+    batch_size -= 1
+
+cnt = 0
+for i in xrange(test_x_max):
+    tot = np.dot(test_pruned[i],weight.T)
+    if(tot >= 0 and test_flag[i] == 1):
+        cnt += 1
+        #print (1)
+    elif(tot < 0 and test_flag[i] == 0):
+        cnt += 1
+        #print (1)
+    else:
+        cnt += 0
+        #print(0)
+print cnt
+"""
