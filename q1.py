@@ -108,7 +108,7 @@ print cnt
 weight = np.zeros(784)
 dump = np.zeros(784)
 batch_size = 50
-margin = 10
+margin = 100
 
 while(batch_size > 0):
     dump = np.zeros(784)
