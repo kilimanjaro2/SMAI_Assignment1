@@ -1,3 +1,9 @@
+#kilimanjaro2 submitting q1
+#This is Anfield. YNWA
+#201564134
+
+#Pre Processing
+
 import numpy as np
 import scipy as sc
 import math
@@ -20,9 +26,10 @@ test_flag = test[:,[0]]
 train_pruned = train[:,1:]
 test_pruned = test[:,1:]
 
+#single perceptron witout margin
+
 weight = np.zeros(784)
 
-"""
 for i in xrange(train_x_max):
     tot = np.dot(train_pruned[i],weight.T)
     if (tot >= 0 and train_flag[i] == 0):
@@ -30,16 +37,21 @@ for i in xrange(train_x_max):
     elif (tot < 0 and train_flag[i] == 1):
         weight += train_pruned[i]
 
+cnt = 0
 for i in xrange(test_x_max):
     tot = np.dot(test_pruned[i],weight.T)
     if(tot >= 0 and test_flag[i] == 1):
-        print (1)
+        cnt += 1
+        #print (1)
     elif(tot < 0 and test_flag[i] == 0):
-        print (1)
+        cnt += 1
+        #print (1)
     else:
-        print(0)
-"""
-"""
+        cnt += 0
+        #print(0)
+print cnt
+
+#batch perceptron without margin
 weight = np.zeros(784)
 dump = np.zeros(784)
 batch_size = 100
@@ -55,16 +67,22 @@ while(batch_size > 0):
     weight += dump
     batch_size -= 1
 
+cnt = 0
 for i in xrange(test_x_max):
     tot = np.dot(test_pruned[i],weight.T)
     if(tot >= 0 and test_flag[i] == 1):
-        print (1)
+        #print (1)
+        cnt += 1
     elif(tot < 0 and test_flag[i] == 0):
-        print (1)
+        #print (1)
+        cnt += 1
     else:
-        print(0)
-"""
-"""
+        cnt += 0
+        #print(0)
+print cnt
+
+#single perceptron with margin
+
 margin = 100
 for i in xrange(train_x_max):
     tot = np.dot(train_pruned[i],weight.T)
@@ -72,35 +90,33 @@ for i in xrange(train_x_max):
         weight -= train_pruned[i]
     elif (tot <= margin and train_flag[i] == 1):
         weight += train_pruned[i]
-
-#cnt = 0
+cnt = 0
 for i in xrange(test_x_max):
     tot = np.dot(test_pruned[i],weight.T)
     if(tot >= 0 and test_flag[i] == 1):
-        #cnt += 1
-        print (1)
+        cnt += 1
+        #print (1)
     elif(tot < 0 and test_flag[i] == 0):
-        print (1)
-        #cnt += 1
+        cnt += 1
+        #print (1)
     else:
-        #cnt += 0
-        print(0)
+        cnt += 0
+        #print(0)
+print cnt
 
-"""
-"""
+#batch perceptron with margin
 weight = np.zeros(784)
 dump = np.zeros(784)
-batch_size = 100
-margin = 1
+batch_size = 50
+margin = 10
 
 while(batch_size > 0):
     dump = np.zeros(784)
     for i in xrange(train_x_max):
         tot = np.dot(train_pruned[i],weight.T)
-        print tot
         if (tot >= margin and train_flag[i] == 0):
             dump -= train_pruned[i]
-        elif (tot <= -margin and train_flag[i] == 1):
+        elif (tot <= margin and train_flag[i] == 1):
             dump += train_pruned[i]
     weight += dump
     batch_size -= 1
@@ -118,4 +134,4 @@ for i in xrange(test_x_max):
         cnt += 0
         #print(0)
 print cnt
-"""
+print test_x_max
