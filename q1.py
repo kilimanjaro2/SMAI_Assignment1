@@ -41,15 +41,11 @@ cnt = 0
 for i in xrange(test_x_max):
     tot = np.dot(test_pruned[i],weight.T)
     if(tot >= 0 and test_flag[i] == 1):
-        cnt += 1
-        #print (1)
+        print (1)
     elif(tot < 0 and test_flag[i] == 0):
-        cnt += 1
-        #print (1)
+        print (1)
     else:
-        cnt += 0
-        #print(0)
-print cnt
+        print(0)
 
 #batch perceptron without margin
 weight = np.zeros(784)
@@ -126,12 +122,11 @@ for i in xrange(test_x_max):
     tot = np.dot(test_pruned[i],weight.T)
     if(tot >= 0 and test_flag[i] == 1):
         cnt += 1
-        #print (1)
+      
     elif(tot < 0 and test_flag[i] == 0):
         cnt += 1
-        #print (1)
+        
     else:
         cnt += 0
-        #print(0)
-print cnt
-print test_x_max
+       
+
