@@ -22,7 +22,6 @@ def divideSet(rows, column, value):
 	list2 = [row for row in rows if not splittingFunction(row)]
 	return (list1, list2)
 
-
 def uniqueCounts(rows):
 	results = {}
 	for row in rows:
@@ -62,11 +61,7 @@ def growDecisionTreeFrom(rows, evaluationFunction=entropy):
 
 		for value in columnValues:
 			if value != 'nan':
-				#print col
-				print value
 				(set1, set2) = divideSet(rows, col, value)
-
-				# Gain -- Entropy or Gini
 				p = float(len(set1)) / len(rows)
 				gain = currentScore - p*evaluationFunction(set1) - (1-p)*evaluationFunction(set2)
 				#print gain
@@ -119,6 +114,7 @@ def classify(observations, tree, dataMissing=False):
 			else:
 				if v == tree.value: branch = tree.trueBranch
 				else: branch = tree.falseBranch
+		#return classifyWithoutMissingData(observations, branch)
 		return classifyWithoutMissingData(observations, branch)
 
 	return classifyWithoutMissingData(observations, tree)
@@ -154,34 +150,39 @@ if __name__ == '__main__':
 	# 	(8.) Plot the pruned tree
 
 	if example == 1:
-		# the smaller examples
-		unproc_input = str(sys.argv[1])
-		trainingData = np.genfromtxt(unproc_input, delimiter = ',') # sorry for not translating the TBC and pneumonia symptoms
-		trainingQata = trainingData[:10,:]
-		decisionTree = growDecisionTreeFrom(trainingQata)
-		#decisionTree = growDecisionTreeFrom(trainingData, evaluationFunction=gini) # with gini
-		#plot(decisionTree)
-
-		#print(classify(['ohne', 'leicht', 'Streifen', 'normal', 'normal'], decisionTree, dataMissing=False))
-		#print(classify([None, 'leicht', None, 'Flocken', 'fiepend'], decisionTree, dataMissing=True)) # no longer unique
-
-		# Don' forget if you compare the resulting tree with the tree in my presentation: here it is a binary tree!
-
+		example = 1
 	else:
 		input_name = str(sys.argv[1])
-		unproc_data = np.genfromtxt(input_name, delimiter = ',')
+		unproc_data = np.genfromtxt(input_name,delimiter=",",dtype=None)
 		dump = np.copy(unproc_data[:,6])
 		unproc_data[:, 6] = unproc_data[:, 9]
 		unproc_data[:, 9] = dump
-		trainingData = unproc_data[:1000,:]
+		training_size = unproc_data.shape[0]
+		i = 0
+		while i < training_size:
+			if unproc_data[i][6] == "low" :
+				unproc_data[i][6] = float(0.0)
+			elif unproc_data[i][6] == "medium" :
+				unproc_data[i][6] = float(1.0)
+			elif unproc_data[i][6] == "high" :
+				unproc_data[i][6] = float(2.0)
+			i += 1
+		total_size = training_size
+		training_size *= 3
+		training_size /= 5
+		training_size = 1000 # ***************************************** #
+		#total_size = 30
+		trainingData = unproc_data[:training_size,:]
+		testData = unproc_data[training_size:, :9]
+		testFlag = unproc_data[training_size:, 9]
 		decisionTree = growDecisionTreeFrom(trainingData)
-		# the bigger example
-		#trainingData = loadCSV('fishiris.csv') # demo data from matlab
-		#decisionTree = growDecisionTreeFrom(trainingData)
-		#plot(decisionTree)
 
-		#prune(decisionTree, 0.5, notify=True) # notify, when a branch is pruned (one time in this example)
-		#plot(decisionTree)
-
-		#print(classify([6.0, 2.2, 5.0, 1.5], decisionTree)) # dataMissing=False is the default setting
+		prune(decisionTree, 0.5, notify=True) # notify, when a branch is pruned (one time in this example)
+		plot(decisionTree)
+		i = training_size
+		while i < total_size:
+			print testData[i-training_size]
+			print testFlag[i-training_size]
+			print(classify(testData[i - training_size], decisionTree)) # dataMissing=False is the default setting
+			i += 1
 		#print(classify([None, None, None, 1.5], decisionTree, dataMissing=True)) # no longer unique
