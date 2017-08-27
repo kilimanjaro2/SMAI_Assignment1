@@ -2,6 +2,7 @@ import csv
 import collections
 import sys
 import numpy as np
+import re
 
 class DecisionTree:
 	"""Binary tree implementation with true and false branch. """
@@ -114,7 +115,6 @@ def classify(observations, tree, dataMissing=False):
 			else:
 				if v == tree.value: branch = tree.trueBranch
 				else: branch = tree.falseBranch
-		#return classifyWithoutMissingData(observations, branch)
 		return classifyWithoutMissingData(observations, branch)
 
 	return classifyWithoutMissingData(observations, tree)
@@ -137,52 +137,45 @@ def plot(decisionTree):
 
 if __name__ == '__main__':
 
-	# Select the example you want to classify
-	example = 2
-
-	# All examples do the following steps:
-	# 	1. Load training data
-	# 	2. Let the decision tree grow
-	# 	4. Plot the decision tree
-	# 	5. classify without missing data
-	# 	6. Classifiy with missing data
-	# 	(7.) Prune the decision tree according to a minimal gain level
-	# 	(8.) Plot the pruned tree
-
-	if example == 1:
-		example = 1
-	else:
-		input_name = str(sys.argv[1])
-		unproc_data = np.genfromtxt(input_name,delimiter=",",dtype=None)
-		dump = np.copy(unproc_data[:,6])
-		unproc_data[:, 6] = unproc_data[:, 9]
-		unproc_data[:, 9] = dump
-		training_size = unproc_data.shape[0]
-		i = 0
-		while i < training_size:
-			if unproc_data[i][6] == "low" :
-				unproc_data[i][6] = float(0.0)
-			elif unproc_data[i][6] == "medium" :
-				unproc_data[i][6] = float(1.0)
-			elif unproc_data[i][6] == "high" :
-				unproc_data[i][6] = float(2.0)
-			i += 1
-		total_size = training_size
-		training_size *= 3
-		training_size /= 5
-		training_size = 1000 # ***************************************** #
-		#total_size = 30
-		trainingData = unproc_data[:training_size,:]
-		testData = unproc_data[training_size:, :9]
-		testFlag = unproc_data[training_size:, 9]
-		decisionTree = growDecisionTreeFrom(trainingData)
-
-		prune(decisionTree, 0.5, notify=True) # notify, when a branch is pruned (one time in this example)
-		plot(decisionTree)
-		i = training_size
-		while i < total_size:
-			print testData[i-training_size]
-			print testFlag[i-training_size]
-			print(classify(testData[i - training_size], decisionTree)) # dataMissing=False is the default setting
-			i += 1
-		#print(classify([None, None, None, 1.5], decisionTree, dataMissing=True)) # no longer unique
+	input_name = str(sys.argv[1])
+	unproc_data = np.genfromtxt(input_name,delimiter=",",dtype=None)
+	dump = np.copy(unproc_data[:,6])
+	unproc_data[:, 6] = unproc_data[:, 9]
+	unproc_data[:, 9] = dump
+	training_size = unproc_data.shape[0]
+	i = 0
+	while i < training_size:
+		if unproc_data[i][6] == "low" :
+			unproc_data[i][6] = float(0.0)
+		elif unproc_data[i][6] == "medium" :
+			unproc_data[i][6] = float(1.0)
+		elif unproc_data[i][6] == "high" :
+			unproc_data[i][6] = float(2.0)
+		i += 1
+	total_size = training_size
+	training_size *= 3
+	training_size /= 5
+	training_size = 2000 # ***************************************** #
+	#total_size = 30
+	trainingData = unproc_data[:training_size,:]
+	testData = unproc_data[training_size:, :9]
+	testFlag = unproc_data[training_size:, 9]
+	decisionTree = growDecisionTreeFrom(trainingData)
+	cnt = 0
+	prune(decisionTree, 0.5, notify=False)
+	#plot(decisionTree)
+	i = training_size
+	while i < total_size:
+		dump_str = str(classify(testData[i - training_size], decisionTree))
+		#print dump_str #.split()
+		temp_str = re.sub('[^0-9a-zA-Z]+', ' ', dump_str)
+		dump_str = temp_str.split()
+		dump_length = len(dump_str)
+		if dump_length == 4:
+			if(dump_str[1] < dump_str[3]):
+				dump_str[0] = dump_str[2]
+		if(int(testFlag[i-training_size]) == int(dump_str[0])):
+			cnt += 1
+		i += 1
+	print cnt
+	print 100 * float(cnt)/float(total_size-training_size)
