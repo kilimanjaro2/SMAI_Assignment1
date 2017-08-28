@@ -1,294 +1,138 @@
-from __future__ import with_statement
-import sys
-import collections
 import math
+import pandas as pd
+import sys
+from pandas import DataFrame
+from collections import Counter
+from pprint import pprint
 
-def entropy(data, target_attr):
-    """
-    Calculates the entropy of the given data set for the target attribute.
-    """
-    val_freq = {}
-    data_entropy = 0.0
+df_shroom = DataFrame.from_csv(sys.argv[1])
 
-    # Calculate the frequency of each of the values in the target attr
-    for record in data:
-        if (val_freq.has_key(record[target_attr])):
-            val_freq[record[target_attr]] += 1.0
-        else:
-            val_freq[record[target_attr]] = 1.0
-
-    # Calculate the entropy of the data for the target attribute
-    for freq in val_freq.values():
-        data_entropy += (-freq/len(data)) * math.log(freq/len(data), 2)
-
-    return data_entropy
-
-def gain(data, attr, target_attr):
-    """
-    Calculates the information gain (reduction in entropy) that would
-    result by splitting the data on the chosen attribute (attr).
-    """
-    val_freq = {}
-    subset_entropy = 0.0
-
-    # Calculate the frequency of each of the values in the target attribute
-    for record in data:
-        if (val_freq.has_key(record[attr])):
-            val_freq[record[attr]] += 1.0
-        else:
-            val_freq[record[attr]] = 1.0
-
-    # Calculate the sum of the entropy for each subset of records weighted
-    # by their probability of occuring in the training set.
-    for val in val_freq.keys():
-        val_prob = val_freq[val] / sum(val_freq.values())
-        data_subset = [record for record in data if record[attr] == val]
-        subset_entropy += val_prob * entropy(data_subset, target_attr)
-
-    # Subtract the entropy of the chosen attribute from the entropy of the
-    # whole data set with respect to the target attribute (and return it)
-    return (entropy(data, target_attr) - subset_entropy)
+def entropy(probs):
+    '''
+    Takes a list of probabilities and calculates their entropy
+    '''
+    return sum( [-prob*math.log(prob, 2) for prob in probs] )
 
 
+def entropy_of_list(a_list):
+    '''
+    Takes a list of items with discrete values (e.g., poisonous, edible)
+    and returns the entropy for those items.
+    '''
+    # Tally Up:
+    cnt = Counter(x for x in a_list)
 
-def majority_value(data, target_attr):
-    data = data[:]
-    return most_frequent([record[target_attr] for record in data])
+    # Convert to Proportion
+    num_instances = len(a_list)*1.0
+    probs = [x / num_instances for x in cnt.values()]
 
-def most_frequent(lst):
-    """
-    Returns the item that appears most frequently in the given list.
-    """
-    lst = lst[:]
-    highest_freq = 0
-    most_freq = None
+    # Calculate Entropy:
+    return entropy(probs)
 
-    for val in unique(lst):
-        if lst.count(val) > highest_freq:
-            most_freq = val
-            highest_freq = lst.count(val)
+# The initial entropy of the poisonous/not attribute for our dataset.
+#total_entropy = entropy_of_list(df_shroom['left'])
+#print total_entropy
 
-    return most_freq
+def information_gain(df, split_attribute_name, target_attribute_name, trace=0):
+    '''
+    Takes a DataFrame of attributes, and quantifies the entropy of a target
+    attribute after performing a split along the values of another attribute.
+    '''
 
-def unique(lst):
-    """
-    Returns a list made up of the unique values found in lst.  i.e., it
-    removes the redundant values in lst.
-    """
-    lst = lst[:]
-    unique_lst = []
+    # Split Data by Possible Vals of Attribute:
+    df_split = df.groupby(split_attribute_name)
 
-    # Cycle through the list and add each value to the unique list only once.
-    for item in lst:
-        if unique_lst.count(item) <= 0:
-            unique_lst.append(item)
+    # Calculate Entropy for Target Attribute, as well as Proportion of Obs in Each Data-Split
+    nobs = len(df.index) * 1.0
+    df_agg_ent = df_split.agg({target_attribute_name : [entropy_of_list, lambda x: len(x)/nobs] })[target_attribute_name]
+    df_agg_ent.columns = ['Entropy', 'PropObservations']
+    if trace: # helps understand what fxn is doing:
+        print df_agg_ent
 
-    # Return the list with all redundant values removed.
-    return unique_lst
+    # Calculate Information Gain:
+    new_entropy = sum( df_agg_ent['Entropy'] * df_agg_ent['PropObservations'] )
+    old_entropy = entropy_of_list(df[target_attribute_name])
+    return old_entropy-new_entropy
 
-def get_values(data, attr):
-    """
-    Creates a list of values in the chosen attribut for each record in data,
-    prunes out all of the redundant values, and return the list.
-    """
-    data = data[:]
-    return unique([record[attr] for record in data])
+#print '\nExample: Info-gain for best attribute is ' + str( information_gain(df_shroom, 'odor', 'class') )
 
-def choose_attribute(data, attributes, target_attr, fitness):
-    """
-    Cycles through all the attributes and returns the attribute with the
-    highest information gain (or lowest entropy).
-    """
-    data = data[:]
-    best_gain = 0.0
-    best_attr = None
+def id3(df, target_attribute_name, attribute_names, default_class=None):
 
-    for attr in attributes:
-        gain = fitness(data, attr, target_attr)
-        if (gain >= best_gain and attr != target_attr):
-            best_gain = gain
-            best_attr = attr
+    ## Tally target attribute:
+    from collections import Counter
+    cnt = Counter(x for x in df[target_attribute_name])
 
-    return best_attr
+    ## First check: Is this split of the dataset homogeneous?
+    # (e.g., all mushrooms in this set are poisonous)
+    # if yes, return that homogenous label (e.g., 'poisonous')
+    if len(cnt) == 1:
+        return cnt.keys()[0]
 
-def get_examples(data, attr, value):
-    """
-    Returns a list of all the records in <data> with the value of <attr>
-    matching the given value.
-    """
-    data = data[:]
-    rtn_lst = []
+    ## Second check: Is this split of the dataset empty?
+    # if yes, return a default value
+    elif df.empty or (not attribute_names):
+        return default_class
 
-    if not data:
-        return rtn_lst
+    ## Otherwise: This dataset is ready to be divvied up!
     else:
-        record = data.pop()
-        if record[attr] == value:
-            rtn_lst.append(record)
-            rtn_lst.extend(get_examples(data, attr, value))
-            return rtn_lst
-        else:
-            rtn_lst.extend(get_examples(data, attr, value))
-            return rtn_lst
+        # Get Default Value for next recursive call of this function:
+        index_of_max = cnt.values().index(max(cnt.values()))
+        default_class = cnt.keys()[index_of_max] # most common value of target attribute in dataset
 
-def get_classification(record, tree):
-    """
-    This function recursively traverses the decision tree and returns a
-    classification for the given record.
-    """
-    # If the current node is a string, then we've reached a leaf node and
-    # we can return it as our answer
-    if type(tree) == type("string"):
+        # Choose Best Attribute to split on:
+        gainz = [information_gain(df, attr, target_attribute_name) for attr in attribute_names]
+        index_of_max = gainz.index(max(gainz))
+        best_attr = attribute_names[index_of_max]
+
+        # Create an empty tree, to be populated in a moment
+        tree = {best_attr:{}}
+        remaining_attribute_names = [i for i in attribute_names if i != best_attr]
+
+        # Split dataset
+        # On each split, recursively call this algorithm.
+        # populate the empty tree with subtrees, which
+        # are the result of the recursive call
+        for attr_val, data_subset in df.groupby(best_attr):
+            subtree = id3(data_subset,
+                        target_attribute_name,
+                        remaining_attribute_names,
+                        default_class)
+            tree[best_attr][attr_val] = subtree
         return tree
 
-    # Traverse the tree further until a leaf node is found.
+# Get Predictor Names (all but 'class')
+attribute_names = list(df_shroom.columns)
+attribute_names.remove('left')
+
+# Run Algorithm:
+
+tree = id3(df_shroom, 'left', attribute_names)
+#pprint(tree)
+
+def classify(instance, tree, default=None):
+    attribute = tree.keys()[0]
+    if instance[attribute] in tree[attribute].keys():
+        result = tree[attribute][instance[attribute]]
+        if isinstance(result, dict): # this is a tree, delve deeper
+            return classify(instance, result)
+        else:
+            return result # this is a label
     else:
-        attr = tree.keys()[0]
-        t = tree[attr][record[attr]]
-        return get_classification(record, t)
-
-def classify(tree, data):
-    """
-    Returns a list of classifications for each of the records in the data
-    list as determined by the given decision tree.
-    """
-    data = data[:]
-    classification = []
-
-    for record in data:
-        classification.append(get_classification(record, tree))
-
-    return classification
-
-def create_decision_tree(data, attributes, target_attr, fitness_func):
-    """
-    Returns a new decision tree based on the examples given.
-    """
-    data = data[:]
-    vals = [record[target_attr] for record in data]
-    default = majority_value(data, target_attr)
-
-    # If the dataset is empty or the attributes list is empty, return the
-    # default value. When checking the attributes list for emptiness, we
-    # need to subtract 1 to account for the target attribute.
-    if not data or (len(attributes) - 1) <= 0:
         return default
-    # If all the records in the dataset have the same classification,
-    # return that classification.
-    elif vals.count(vals[0]) == len(vals):
-        return vals[0]
-    else:
-        # Choose the next best attribute to best classify our data
-        best = choose_attribute(data, attributes, target_attr,
-                                fitness_func)
 
-        # Create a new decision tree/node with the best attribute and an empty
-        # dictionary object--we'll fill that up next.
-        # We use the collections.defaultdict function to add a function to the
-        # new tree that will be called whenever we query the tree with an
-        # attribute that does not exist.  This way we return the default value
-        # for the target attribute whenever, we have an attribute combination
-        # that wasn't seen during training.
-        tree = {best:collections.defaultdict(lambda: default)}
+df_shroom['predicted'] = df_shroom.apply(classify, axis=1, args=(tree,'0') )
+    # classify func allows for a default arg: when tree doesn't have answer for a particular
+    # combitation of attribute-values, we can use 'poisonous' as the default guess (better safe than sorry!)
 
-        # Create a new decision tree/sub-node for each of the values in the
-        # best attribute field
-        for val in get_values(data, best):
-            # Create a subtree for the current value under the "best" field
-            subtree = create_decision_tree(
-                get_examples(data, best, val),
-                [attr for attr in attributes if attr != best],
-                target_attr,
-                fitness_func)
+print 'Accuracy is ' + str( sum(df_shroom['left']==df_shroom['predicted'] ) / (1.0*len(df_shroom.index)) )
 
-            # Add the new subtree to the empty dictionary object in our new
-            # tree/node we just created.
-            tree[best][val] = subtree
+training_data = df_shroom.iloc[1:-1000] # all but last thousand instances
+test_data  = df_shroom.iloc[-1000:] # just the last thousand
+train_tree = id3(training_data, 'left', attribute_names)
 
-    return tree
+test_data['predicted2'] = test_data.apply(                                # <---- test_data source
+                                          classify,
+                                          axis=1,
+                                          args=(train_tree,'0') ) # <---- train_data tree
 
-def get_filenames():
-    training_filename = sys.argv[1]
-    test_filename = sys.argv[2]
-    return training_filename, test_filename
-
-def get_attributes(filename):
-    """
-    Parses the attribute names from the header line of the given file.
-    """
-    # Create a list of all the lines in the training file
-    with open(filename, 'r') as fin:
-        header = fin.readline().strip()
-
-    # Parse the attributes from the header
-    attributes = [attr.strip() for attr in header.split(",")]
-
-    return attributes
-
-def get_data(filename, attributes):
-    """
-    This function takes a file and list of attributes and returns a list of
-    dict objects that represent each record in the file.
-    """
-    # Create a list of all the lines in the training file
-    with open(filename) as fin:
-        lines = [line.strip() for line in fin.readlines()]
-
-    # Remove the attributes line from the list of lines
-    del lines[0]
-
-    # Parse all of the individual data records from the given file
-    data = []
-    for line in lines:
-        data.append(dict(zip(attributes,
-                             [datum.strip() for datum in line.split(",")])))
-
-    return data
-
-def print_tree(tree, str):
-    """
-    This function recursively crawls through the d-tree and prints it out in a
-    more readable format than a straight print of the Python dict object.
-    """
-    if type(tree) == dict:
-        print "%s%s" % (str, tree.keys()[0])
-        for item in tree.values()[0].keys():
-            print "%s\t%s" % (str, item)
-            print_tree(tree.values()[0][item], str + "\t")
-    else:
-        print "%s\t->\t%s" % (str, tree)
-
-
-if __name__ == "__main__":
-    # Get the training and test data filenames from the user
-    training_filename, test_filename = get_filenames()
-
-    # Extract the attribute names and the target attribute from the training
-    # data file.
-    attributes = get_attributes(training_filename)
-    target_attr = attributes[-1]
-
-    # Get the training and test data from the given files
-    training_data = get_data(training_filename, attributes)
-    test_data = get_data(test_filename, attributes)
-
-    # Create the decision tree
-    dtree = create_decision_tree(training_data, attributes, target_attr, gain)
-
-    # Classify the records in the test data
-    classification = classify(dtree, test_data)
-
-    # Print the results of the test
-    print "------------------------\n"
-    print "--   Classification   --\n"
-    print "------------------------\n"
-    print "\n"
-    for item in classification: print item
-
-    # Print the contents of the decision tree
-    print "\n"
-    print "------------------------\n"
-    print "--   Decision Tree    --\n"
-    print "------------------------\n"
-    print "\n"
-    print_tree(dtree, "")
+print 'Accuracy is ' + str( sum(test_data['left']==test_data['predicted2'] ) / (1.0*len(test_data.index)) )
